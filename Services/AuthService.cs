@@ -118,24 +118,25 @@ namespace DyanamicsAPI.Services
 
         private string GenerateJwtToken(User user)
         {
-            var claims = new List<Claim>
+             var claims = new List<Claim>
     {
-        new(JwtRegisteredClaimNames.Sub, user.Username),
-        new(JwtRegisteredClaimNames.Email, user.Email),
-        new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        new Claim(ClaimTypes.Role, user.Role.ToString())
+                 new(JwtRegisteredClaimNames.Sub, user.Username),
+                 new(JwtRegisteredClaimNames.Email, user.Email),
+                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                 new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", user.Role.ToString())
+
     };
 
             // Decode base64 key
             var secretKey = _configuration["JwtSettings:SecretKey"]!;
-            var keyBytes = Convert.FromBase64String(secretKey);
+            var keyBytes = Encoding.UTF8.GetBytes(secretKey); // Match validation approach
             var key = new SymmetricSecurityKey(keyBytes);
 
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-                issuer: _configuration["JwtSettings:Issuer"],
-                audience: _configuration["JwtSettings:Audience"],
+                issuer: _configuration["JwtSettings:Issuer"],      // "DyamicsAPI"
+                audience: _configuration["JwtSettings:Audience"],  // "DyamicsAPIUser"
                 claims: claims,
                 expires: DateTime.UtcNow.AddHours(24),
                 signingCredentials: creds

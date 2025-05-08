@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -55,68 +56,23 @@ builder.Services.AddSwaggerGen(c =>
 
 
 // JWT Auth
-var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "1MK9x9sezBwBTWc+c2iqme5Ult/WZMSE2XoWfRJLrWA=";
-var keyBytes = Convert.FromBase64String(secretKey);
+var secretKey = builder.Configuration["JwtSettings:SecretKey"]!;
+var keyBytes = Encoding.UTF8.GetBytes(secretKey); // Changed from Base64 decode
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        var key = Convert.FromBase64String(builder.Configuration["JwtSettings:SecretKey"]!);
-
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+            ValidateAudience = true,
             ValidAudience = builder.Configuration["JwtSettings:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
-            // 🔧 Increase clock skew to avoid time sync issues
-            ClockSkew = TimeSpan.FromMinutes(5),
-        };
-
-        // 🔍 Log token validation results
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                Console.WriteLine("📥 Token received:");
-                Console.WriteLine(context.Request.Headers["Authorization"]);
-                return Task.CompletedTask;
-            },
-            OnAuthenticationFailed = context =>
-            {
-                Console.WriteLine("❌ Authentication failed!");
-                Console.WriteLine($"Exception: {context.Exception.GetType().Name}");
-                Console.WriteLine($"Message: {context.Exception.Message}");
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                Console.WriteLine("✅ Token successfully validated!");
-                Console.WriteLine("Claims:");
-                foreach (var claim in context.Principal!.Claims)
-                {
-                    Console.WriteLine($" - {claim.Type}: {claim.Value}");
-                }
-                return Task.CompletedTask;
-            },
-            OnChallenge = context =>
-            {
-                Console.WriteLine("⚠️ JWT Challenge triggered.");
-                Console.WriteLine($"Error: {context.Error}");
-                Console.WriteLine($"Description: {context.ErrorDescription}");
-                if (context.AuthenticateFailure != null)
-                {
-                    Console.WriteLine($"Failure: {context.AuthenticateFailure.Message}");
-                }
-                return Task.CompletedTask;
-            }
+            ValidateLifetime = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes), // Use UTF8 bytes directly
+            ValidateIssuerSigningKey = true
         };
     });
-
 
 builder.Services.AddCors(options =>
 {
@@ -142,7 +98,20 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+app.Use(async (context, next) => {
+    Console.WriteLine($"Incoming Auth Header: {context.Request.Headers["Authorization"]}");
+    await next();
+});
+
 app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation($"Current UTC time: {DateTime.UtcNow:O}");
+
+    await next();
+});
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

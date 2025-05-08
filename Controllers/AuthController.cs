@@ -16,6 +16,7 @@ namespace DyanamicsAPI.Controllers
         {
             _authService = authService;
         }
+        
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto loginDto)
@@ -44,7 +45,7 @@ namespace DyanamicsAPI.Controllers
         }
 
         // Get all users (SuperAdmin, Admin)
-        [Authorize(Roles = "SuperAdmin,Admin,User")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpGet("Getallusers")]
         public async Task<IActionResult> GetUsers()
         {
@@ -53,7 +54,7 @@ namespace DyanamicsAPI.Controllers
         }
 
         // Delete a user (only SuperAdmin)
-        //[Authorize(Roles = "SuperAdmin")]
+        [Authorize(Roles = "SuperAdmin")]
         [HttpPost("Delete user/id")]
         public async Task<IActionResult> DeleteUser(int id)
         {
@@ -65,7 +66,7 @@ namespace DyanamicsAPI.Controllers
         }
 
         // Update a user (SuperAdmin, Admin)
-        //[Authorize(Roles = "SuperAdmin,Admin")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPost("Edit user/id")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequestDto updateDto)
         {
