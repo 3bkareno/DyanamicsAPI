@@ -2,6 +2,7 @@
 {
     public enum UserRole
     {
+        // frontend req 
         SuperAdmin=1,
         Admin,
         User
