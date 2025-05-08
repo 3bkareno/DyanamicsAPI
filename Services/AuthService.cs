@@ -23,21 +23,115 @@ namespace DyanamicsAPI.Services
         }
 
         // AuthService.AuthenticateAsync
-        public async Task<(string Token, User user)> AuthenticateAsync(LoginRequestDto loginDto)
+        public async Task<(string AccessToken, RefreshToken RefreshToken, User User)> AuthenticateAsync(LoginRequestDto loginDto)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == loginDto.Username);
 
-            if (user == null)
-                return (null, null);
+            if (user == null || ComputeSha256Hash(loginDto.Password) != user.PasswordHash)
+                return (null, null, null);
 
-            var passwordHash = ComputeSha256Hash(loginDto.Password);
+            var accessToken = GenerateJwtToken(user);
+            var refreshToken = GenerateRefreshToken(user.Id);
+            
+            _context.RefreshTokens.Add(refreshToken);
+            await _context.SaveChangesAsync();
 
-            if (user.PasswordHash != passwordHash)
-                return (null, null);
-
-            var token = GenerateJwtToken(user);
-            return (token, user);
+            return (accessToken, refreshToken, user);
         }
+
+        public async Task<(string AccessToken, RefreshToken RefreshToken)> RefreshTokenAsync(string refreshToken)
+        {
+            var storedToken = await _context.RefreshTokens
+                .Include(rt => rt.User)
+                .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.Expires > DateTime.UtcNow);
+
+            if (storedToken == null)
+                return (null, null);
+
+            var newAccessToken = GenerateJwtToken(storedToken.User);
+            var newRefreshToken = GenerateRefreshToken(storedToken.User.Id);
+
+            // Remove old refresh token
+            _context.RefreshTokens.Remove(storedToken);
+            _context.RefreshTokens.Add(newRefreshToken);
+            await _context.SaveChangesAsync();
+
+            return (newAccessToken, newRefreshToken);
+        }
+
+        public async Task<bool> RevokeTokenAsync(string refreshToken)
+        {
+            var token = await _context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+            if (token == null) return false;
+
+            _context.RefreshTokens.Remove(token);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        public async Task<bool> LogoutAsync(string accessTokenJti, string refreshToken)
+        {
+            // 1. Blacklist the access token
+            _context.BlacklistedTokens.Add(new BlacklistedToken
+            {
+                Jti = accessTokenJti,
+                Expiry = DateTime.UtcNow.AddHours(24)  // Match JWT expiry
+            });
+
+            // 2. Delete the refresh token
+            var storedRefreshToken = await _context.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+            if (storedRefreshToken != null)
+                _context.RefreshTokens.Remove(storedRefreshToken);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        private RefreshToken GenerateRefreshToken(Guid userId)
+        {
+            if (!_context.Users.Any(u => u.Id == userId))
+                throw new ArgumentException("Invalid user ID");
+            return new RefreshToken
+            {
+                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+                Expires = DateTime.UtcNow.AddDays(7),
+                UserId = userId,
+                Created = DateTime.UtcNow
+            };
+        }
+
+        private string GenerateJwtToken(User user)
+        {
+            var claims = new List<Claim>
+            {
+                new(JwtRegisteredClaimNames.Sub, user.Username),
+                new(JwtRegisteredClaimNames.Email, user.Email),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new(ClaimTypes.Role, user.Role.ToString())
+            };
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_configuration["JwtSettings:SecretKey"]!));
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["JwtSettings:Issuer"],
+                audience: _configuration["JwtSettings:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(15), // Shorter expiry for access token
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+
+
+
+
+
 
         public async Task<UserDto> AddUserAsync(AddUserRequestDto dto)
         {
@@ -72,7 +166,7 @@ namespace DyanamicsAPI.Services
                 .ToListAsync();
         }
 
-        public async Task<bool> DeleteUserAsync(int id)
+        public async Task<bool> DeleteUserAsync(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
             if (user == null)
@@ -83,7 +177,7 @@ namespace DyanamicsAPI.Services
             return true;
         }
 
-        public async Task<UserDto?> UpdateUserAsync(int id, UpdateUserRequestDto dto)
+        public async Task<UserDto?> UpdateUserAsync(Guid id, UpdateUserRequestDto dto)
         {
             var user = await _context.Users.FindAsync(id);
             if (user == null)
@@ -115,39 +209,6 @@ namespace DyanamicsAPI.Services
             var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(rawData));
             return BitConverter.ToString(bytes).Replace("-", "").ToLower();
         }
-
-        private string GenerateJwtToken(User user)
-        {
-             var claims = new List<Claim>
-    {
-                 new(JwtRegisteredClaimNames.Sub, user.Username),
-                 new(JwtRegisteredClaimNames.Email, user.Email),
-                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                 new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", user.Role.ToString())
-
-    };
-
-            // Decode base64 key
-            var secretKey = _configuration["JwtSettings:SecretKey"]!;
-            var keyBytes = Encoding.UTF8.GetBytes(secretKey); // Match validation approach
-            var key = new SymmetricSecurityKey(keyBytes);
-
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: _configuration["JwtSettings:Issuer"],      // "DyamicsAPI"
-                audience: _configuration["JwtSettings:Audience"],  // "DyamicsAPIUser"
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(24),
-                signingCredentials: creds
-            );
-
-            // Return the JWT token as a string (the compact serialization format)
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-
-
 
     }
 }

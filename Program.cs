@@ -3,6 +3,7 @@ using DyanamicsAPI.Services;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
@@ -52,6 +53,13 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+    c.AddSecurityDefinition("cookieAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Name = "refreshToken",
+        Description = "Refresh token in cookie"
+    });
 });
 
 
@@ -71,6 +79,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes), // Use UTF8 bytes directly
             ValidateIssuerSigningKey = true
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var jti = context.Principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                var isBlacklisted = await context.HttpContext
+                    .RequestServices
+                    .GetRequiredService<AppDbContext>()
+                    .BlacklistedTokens
+                    .AnyAsync(t => t.Jti == jti && t.Expiry > DateTime.UtcNow);
+
+                if (isBlacklisted)
+                    context.Fail("Token revoked");
+            }
         };
     });
 
