@@ -35,7 +35,7 @@ namespace DyanamicsAPI.Controllers
             return Ok(response);
         }
 
-        //[Authorize(Roles = "SuperAdmin,Admin")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPost("Add User")]
         public async Task<IActionResult> AddUser([FromBody] AddUserRequestDto addUserDto)
         {
