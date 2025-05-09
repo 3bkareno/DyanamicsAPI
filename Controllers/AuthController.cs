@@ -2,11 +2,13 @@
 using DyanamicsAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using System.Security.Claims;
 
 namespace DyanamicsAPI.Controllers
 {
+    [EnableRateLimiting("api")]
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController : ControllerBase

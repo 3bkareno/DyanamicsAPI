@@ -1,15 +1,19 @@
 using DyanamicsAPI.Data;
+using DyanamicsAPI.Middleware;
 using DyanamicsAPI.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +36,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddAuthorization();
+
 
 // Swagger Auth
 builder.Services.AddSwaggerGen(c =>
@@ -116,6 +122,19 @@ builder.Services.AddCors(options =>
     });
 });
 
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddSlidingWindowLimiter("api", limiter =>
+    {
+        limiter.Window = TimeSpan.FromSeconds(10);
+        limiter.PermitLimit = 5;
+        limiter.SegmentsPerWindow = 2;
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst; // Now works
+        limiter.QueueLimit = 2;
+    });
+});
+
 var app = builder.Build();
 
 // Seed data
@@ -128,23 +147,12 @@ using (var scope = app.Services.CreateScope())
 // Middleware
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
-app.Use(async (context, next) => {
-    Console.WriteLine($"Incoming Auth Header: {context.Request.Headers["Authorization"]}");
-    await next();
-});
-
 app.UseAuthentication();
-
-app.Use(async (context, next) =>
-{
-    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation($"Current UTC time: {DateTime.UtcNow:O}");
-
-    await next();
-});
 app.UseAuthorization();
+app.UseMiddleware<RequestResponseLoggingMiddleware>();
+
+app.UseRateLimiter();
 app.MapControllers();
 app.Run();
