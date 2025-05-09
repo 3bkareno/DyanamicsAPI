@@ -136,7 +136,7 @@ namespace DyanamicsAPI.Controllers
 
 
         [Authorize(Roles = "SuperAdmin,Admin")]
-        [HttpPost("Add User")]
+        [HttpPost("AddUser")]
         public async Task<IActionResult> AddUser([FromBody] AddUserRequestDto addUserDto)
         {
             var user = await _authService.AddUserAsync(addUserDto);
@@ -154,7 +154,7 @@ namespace DyanamicsAPI.Controllers
 
         // Delete a user (only SuperAdmin)
         [Authorize(Roles = "SuperAdmin")]
-        [HttpPost("Delete user/id")]
+        [HttpPost("Deleteuser/id")]
         public async Task<IActionResult> DeleteUser(Guid id)
         {
             var success = await _authService.DeleteUserAsync(id);
@@ -166,7 +166,7 @@ namespace DyanamicsAPI.Controllers
 
         // Update a user (SuperAdmin, Admin)
         [Authorize(Roles = "SuperAdmin,Admin")]
-        [HttpPost("Edit user/id")]
+        [HttpPost("Edituser/id")]
         public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequestDto updateDto)
         {
             var updatedUser = await _authService.UpdateUserAsync(id, updateDto);
