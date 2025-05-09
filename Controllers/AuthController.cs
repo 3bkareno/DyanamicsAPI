@@ -28,6 +28,8 @@ namespace DyanamicsAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto loginDto)
         {
+            // 1. Validate input
+            // tuple deconstruction
             var (accessToken, refreshToken, user) = await _authService.AuthenticateAsync(loginDto);
 
             if (accessToken == null)
@@ -132,7 +134,6 @@ namespace DyanamicsAPI.Controllers
 
             return Ok("Logged out successfully");
         }
-
 
 
         [Authorize(Roles = "SuperAdmin,Admin")]
