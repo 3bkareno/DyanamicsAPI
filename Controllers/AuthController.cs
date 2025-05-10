@@ -142,8 +142,22 @@ namespace DyanamicsAPI.Controllers
         [HttpPost("AddUser")]
         public async Task<IActionResult> AddUser([FromBody] AddUserRequestDto addUserDto)
         {
-            var user = await _authService.AddUserAsync(addUserDto);
-            return Ok("User Added successfully.");
+            var (user, error) = await _authService.AddUserAsync(addUserDto);
+
+            if (error != null)
+                return BadRequest(new { Error = error });
+
+            return Ok(new
+            {
+                Message = "User added successfully",
+                User = new
+                {
+                    user.Id,
+                    user.Username,
+                    user.Email,
+                    user.Role
+                }
+            });
         }
 
         // Get all users (SuperAdmin, Admin)
@@ -169,14 +183,22 @@ namespace DyanamicsAPI.Controllers
 
         // Update a user (SuperAdmin, Admin)
         [Authorize(Roles = "SuperAdmin,Admin")]
-        [HttpPost("Edituser/id")]
+        [HttpPost("EditUser/id")]  
         public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequestDto updateDto)
         {
-            var updatedUser = await _authService.UpdateUserAsync(id, updateDto);
-            if (updatedUser == null)
-                return NotFound("User not found.");
+            var (updatedUser, error) = await _authService.UpdateUserAsync(id, updateDto);
 
-            return Ok(updatedUser);
+            if (error != null)
+                return BadRequest(new { Error = error });
+
+            if (updatedUser == null)
+                return NotFound("User not found");
+
+            return Ok(new
+            {
+                Message = "User updated successfully",
+                User = updatedUser
+            });
         }
     }
 }

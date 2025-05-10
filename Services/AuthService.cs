@@ -1,6 +1,7 @@
 ﻿using DyanamicsAPI.Data;
 using DyanamicsAPI.DTOs;
 using DyanamicsAPI.Models;
+using DyanamicsAPI.Validators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -133,8 +134,21 @@ namespace DyanamicsAPI.Services
 
 
 
-        public async Task<UserDto> AddUserAsync(AddUserRequestDto dto)
+        public async Task<(UserDto User, string Error)> AddUserAsync(AddUserRequestDto dto)
         {
+            // Validate password
+            var (isValid, errorMessage) = PasswordValidator.Validate(dto.Password);
+            if (!isValid)
+                return (null, errorMessage);
+
+            // Check if username exists
+            if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
+                return (null, "Username already exists");
+
+            // Check if email exists
+            if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+                return (null, "Email already in use");
+
             var newUser = new User
             {
                 Username = dto.Username,
@@ -146,12 +160,13 @@ namespace DyanamicsAPI.Services
             _context.Users.Add(newUser);
             await _context.SaveChangesAsync();
 
-            return new UserDto
+            return (new UserDto
             {
                 Id = newUser.Id,
                 Username = newUser.Username,
-                Email = newUser.Email
-            };
+                Email = newUser.Email,
+                Role = newUser.Role.ToString()
+            }, null);
         }
         public async Task<List<UserDto>> GetAllUsersAsync()
         {
@@ -177,12 +192,35 @@ namespace DyanamicsAPI.Services
             return true;
         }
 
-        public async Task<UserDto?> UpdateUserAsync(Guid id, UpdateUserRequestDto dto)
+        public async Task<(UserDto? User, string? Error)> UpdateUserAsync(Guid id, UpdateUserRequestDto dto)
         {
             var user = await _context.Users.FindAsync(id);
             if (user == null)
-                return null;
+                return (null, "User not found");
 
+            // Validate password if provided
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                var (isValid, errorMessage) = PasswordValidator.Validate(dto.Password);
+                if (!isValid)
+                    return (null, errorMessage);
+            }
+
+            // Check if new username exists (if being changed)
+            if (dto.Username != null && dto.Username != user.Username)
+            {
+                if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
+                    return (null, "Username already exists");
+            }
+
+            // Check if new email exists (if being changed)
+            if (dto.Email != null && dto.Email != user.Email)
+            {
+                if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+                    return (null, "Email already in use");
+            }
+
+            // Update fields
             user.Email = dto.Email ?? user.Email;
             user.Username = dto.Username ?? user.Username;
             if (!string.IsNullOrWhiteSpace(dto.Password))
@@ -193,13 +231,13 @@ namespace DyanamicsAPI.Services
 
             await _context.SaveChangesAsync();
 
-            return new UserDto
+            return (new UserDto
             {
                 Id = user.Id,
                 Username = user.Username,
                 Email = user.Email,
                 Role = user.Role.ToString()
-            };
+            }, null);
         }
 
 

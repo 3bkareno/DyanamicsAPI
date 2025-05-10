@@ -1,4 +1,5 @@
 using DyanamicsAPI.Data;
+using DyanamicsAPI.DTOs;
 using DyanamicsAPI.Middleware;
 using DyanamicsAPI.Services;
 using FluentValidation;
@@ -35,6 +36,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // DI
 builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IValidator<AddUserRequestDto>, AddUserRequestValidator>();
+builder.Services.AddScoped<IValidator<UpdateUserRequestDto>, UpdateUserRequestValidator>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAuthorization();
 
@@ -130,7 +133,7 @@ builder.Services.AddRateLimiter(options =>
         limiter.Window = TimeSpan.FromSeconds(10);
         limiter.PermitLimit = 5;
         limiter.SegmentsPerWindow = 2;
-        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst; // Now works
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst; 
         limiter.QueueLimit = 2;
     });
 });
