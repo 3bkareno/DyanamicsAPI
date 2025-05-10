@@ -18,9 +18,9 @@ namespace DyanamicsAPI.Controllers
         private readonly ILogger<AuthController> _logger;
 
         public AuthController(
-       AuthService authService,
-       IWebHostEnvironment env,
-       ILogger<AuthController> logger)
+            AuthService authService,
+            IWebHostEnvironment env,
+            ILogger<AuthController> logger)
         {
             _authService = authService;
             _env = env;
@@ -30,14 +30,10 @@ namespace DyanamicsAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto loginDto)
         {
-            // 1. Validate input
-            // tuple deconstruction
             var (accessToken, refreshToken, user) = await _authService.AuthenticateAsync(loginDto);
-
             if (accessToken == null)
                 return Unauthorized("Invalid credentials");
 
-            // Set refresh token as HTTP-only cookie
             Response.Cookies.Append("refreshToken", refreshToken.Token, new CookieOptions
             {
                 HttpOnly = true,
@@ -48,10 +44,10 @@ namespace DyanamicsAPI.Controllers
 
             return Ok(new LoginResponseDto
             {
-                Id = user.Id, // Include user GUID
+                Id = user.Id,
                 Username = user.Username,
                 AccessToken = accessToken,
-                RefreshToken = refreshToken.Token, // Will now have value
+                RefreshToken = refreshToken.Token,
                 Role = user.Role.ToString(),
                 ExpiresIn = (int)TimeSpan.FromMinutes(15).TotalSeconds
             });
@@ -60,62 +56,35 @@ namespace DyanamicsAPI.Controllers
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken()
         {
-            // 1. More descriptive error message
             var refreshToken = Request.Cookies["refreshToken"];
             if (string.IsNullOrEmpty(refreshToken))
-                return BadRequest("Refresh token missing. Please login again.");
+                return BadRequest("Refresh token missing");
 
             try
             {
-                // 2. Add token validation
-                if (!IsValidRefreshTokenFormat(refreshToken))
-                    return BadRequest("Malformed refresh token");
-
-                // 3. Null check for newRefreshToken
                 var (accessToken, newRefreshToken) = await _authService.RefreshTokenAsync(refreshToken);
-
                 if (accessToken == null || newRefreshToken == null)
-                    return Unauthorized(new
-                    {
-                        Message = "Invalid or expired refresh token",
-                        Action = "require_login"
-                    });
+                    return Unauthorized("Invalid refresh token");
 
-                // 4. Additional cookie security
                 Response.Cookies.Append("refreshToken", newRefreshToken.Token, new CookieOptions
                 {
                     HttpOnly = true,
                     Expires = newRefreshToken.Expires,
-                    Secure = !_env.IsDevelopment(), // Allow non-HTTPS in dev
+                    Secure = !_env.IsDevelopment(),
                     SameSite = SameSiteMode.Strict,
-                    Path = "/api/auth" // Restrict cookie path
+                    Path = "/api/auth"
                 });
 
-                // 5. Return token expiry time
                 return Ok(new
                 {
                     AccessToken = accessToken,
-                    ExpiresIn = 900 // 15 minutes in seconds
+                    ExpiresIn = 900
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Refresh token failure");
                 return StatusCode(500, "Internal server error");
-            }
-        }
-
-        // Helper method
-        private bool IsValidRefreshTokenFormat(string token)
-        {
-            try
-            {
-                return !string.IsNullOrEmpty(token) &&
-                       Convert.FromBase64String(token).Length >= 64;
-            }
-            catch
-            {
-                return false;
             }
         }
 
@@ -130,74 +99,81 @@ namespace DyanamicsAPI.Controllers
                 return BadRequest("Invalid token data");
 
             await _authService.LogoutAsync(jti, refreshToken);
-
-            // Clear the refresh token cookie
             Response.Cookies.Delete("refreshToken");
 
             return Ok("Logged out successfully");
         }
-
 
         [Authorize(Roles = "SuperAdmin,Admin")]
         [HttpPost("AddUser")]
         public async Task<IActionResult> AddUser([FromBody] AddUserRequestDto addUserDto)
         {
             var (user, error) = await _authService.AddUserAsync(addUserDto);
-
             if (error != null)
                 return BadRequest(new { Error = error });
 
             return Ok(new
             {
                 Message = "User added successfully",
-                User = new
-                {
-                    user.Id,
-                    user.Username,
-                    user.Email,
-                    user.Role
-                }
+                User = new { user.Id, user.Username, user.Email, user.Role }
             });
         }
 
-        // Get all users (SuperAdmin, Admin)
         [Authorize(Roles = "SuperAdmin,Admin")]
-        [HttpGet("Getallusers")]
-        public async Task<IActionResult> GetUsers()
+        [HttpGet("GetAllUsers")]
+        public async Task<IActionResult> GetAllUsers()
         {
             var users = await _authService.GetAllUsersAsync();
             return Ok(users);
         }
 
-        // Delete a user (only SuperAdmin)
         [Authorize(Roles = "SuperAdmin")]
-        [HttpPost("Deleteuser/id")]
+        [HttpDelete("DeleteUser/{id}")]
         public async Task<IActionResult> DeleteUser(Guid id)
         {
             var success = await _authService.DeleteUserAsync(id);
-            if (!success)
-                return NotFound("User not found.");
-
-            return Ok("User deleted successfully.");
+            return success ? Ok("User deleted") : NotFound("User not found");
         }
 
-        // Update a user (SuperAdmin, Admin)
         [Authorize(Roles = "SuperAdmin,Admin")]
-        [HttpPost("EditUser/id")]  
+        [HttpPut("UpdateUser/{id}")]
         public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequestDto updateDto)
         {
             var (updatedUser, error) = await _authService.UpdateUserAsync(id, updateDto);
-
             if (error != null)
                 return BadRequest(new { Error = error });
-
-            if (updatedUser == null)
-                return NotFound("User not found");
 
             return Ok(new
             {
                 Message = "User updated successfully",
                 User = updatedUser
+            });
+        }
+
+        [Authorize]
+        [HttpPost("ChangePassword")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                return BadRequest("Invalid user ID format");
+
+            var currentJti = User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+
+            var (success, error) = await _authService.ChangePasswordAsync(
+                userId,
+                dto,
+                currentJti
+            );
+
+            if (!success) return BadRequest(new { Error = error });
+
+            // Clear current session's refresh token cookie
+            Response.Cookies.Delete("refreshToken");
+
+            return Ok(new
+            {
+                Message = "Password changed successfully. All sessions have been logged out."
             });
         }
     }

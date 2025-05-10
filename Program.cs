@@ -38,6 +38,7 @@ builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IValidator<AddUserRequestDto>, AddUserRequestValidator>();
 builder.Services.AddScoped<IValidator<UpdateUserRequestDto>, UpdateUserRequestValidator>();
+builder.Services.AddScoped<IValidator<ChangePasswordDto>, ChangePasswordValidator>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAuthorization();
 
@@ -102,11 +103,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnTokenValidated = async context =>
             {
-                var jti = context.Principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
-                var isBlacklisted = await context.HttpContext
-                    .RequestServices
-                    .GetRequiredService<AppDbContext>()
-                    .BlacklistedTokens
+                var jti = context.Principal.FindFirstValue(JwtRegisteredClaimNames.Jti);
+                var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+
+                var isBlacklisted = await dbContext.BlacklistedTokens
                     .AnyAsync(t => t.Jti == jti && t.Expiry > DateTime.UtcNow);
 
                 if (isBlacklisted)

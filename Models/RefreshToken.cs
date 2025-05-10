@@ -7,6 +7,8 @@
         public DateTime Expires { get; set; }
         public DateTime Created { get; set; }
 
+        public string Jti { get; set; }  // Stores associated JWT ID
+
         // Foreign key property
         public Guid UserId { get; set; }
 

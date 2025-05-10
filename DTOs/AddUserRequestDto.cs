@@ -6,6 +6,7 @@ namespace DyanamicsAPI.DTOs
 {
     public class AddUserRequestDto
     {
+       
         public string Username { get; set; }
         public string Email { get; set; }
         public string Password { get; set; }
@@ -16,6 +17,7 @@ namespace DyanamicsAPI.DTOs
     {
         public AddUserRequestValidator()
         {
+            
             RuleFor(x => x.Username).NotEmpty().MinimumLength(3);
             RuleFor(x => x.Email).NotEmpty().EmailAddress();
             RuleFor(x => x.Password).NotEmpty().Must(p => PasswordValidator.Validate(p).IsValid)
