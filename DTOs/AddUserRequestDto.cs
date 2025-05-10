@@ -18,7 +18,7 @@ namespace DyanamicsAPI.DTOs
         public AddUserRequestValidator()
         {
             
-            RuleFor(x => x.Username).NotEmpty().MinimumLength(3);
+            RuleFor(x => x.Username).NotEmpty().MinimumLength(2);
             RuleFor(x => x.Email).NotEmpty().EmailAddress();
             RuleFor(x => x.Password).NotEmpty().Must(p => PasswordValidator.Validate(p).IsValid)
                 .WithMessage(p => PasswordValidator.Validate(p.Password).Message);
