@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DyanamicsAPI", "DyanamicsAPI.csproj", "{A9C77963-C24D-405C-B520-1A58A6993AA3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A9C77963-C24D-405C-B520-1A58A6993AA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9C77963-C24D-405C-B520-1A58A6993AA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9C77963-C24D-405C-B520-1A58A6993AA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9C77963-C24D-405C-B520-1A58A6993AA3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B17AAD94-F7CB-4604-B291-0FC73582C54D}
+	EndGlobalSection
+EndGlobal
