@@ -12,7 +12,7 @@ namespace DyanamicsAPI.Validators
                 .When(x => !string.IsNullOrEmpty(x.Email));
 
             RuleFor(x => x.Username)
-                .MinimumLength(3)
+                .MinimumLength(2)
                 .When(x => !string.IsNullOrEmpty(x.Username));
 
             RuleFor(x => x.Password)

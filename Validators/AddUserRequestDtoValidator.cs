@@ -9,7 +9,7 @@ namespace DyanamicsAPI.Validators
         {
             RuleFor(x => x.Username)
                 .NotEmpty()
-                .MinimumLength(3);
+                .MinimumLength(2);
 
             RuleFor(x => x.Password)
                 .NotEmpty()

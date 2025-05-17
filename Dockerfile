@@ -1,30 +1,36 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-# This stage is used when running from VS in fast mode (Default for Debug configuration)
+﻿# Use the ASP.NET Core 8.0 runtime as base image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-USER $APP_UID
 WORKDIR /app
+
+# Copy HTTPS dev certificate inside container
+COPY certs/devcert.pfx /https/devcert.pfx
+
+# Set environment variables for Kestrel to find the certificate
+ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/https/devcert.pfx
+ENV ASPNETCORE_Kestrel__Certificates__Default__Password=P@ssw0rd
+
+# Use the SDK image to build the app
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy the project file and restore dependencies
+COPY ["DyanamicsAPI.csproj", "./"]
+RUN dotnet restore "DyanamicsAPI.csproj"
+
+# Copy the entire source code and publish the app
+COPY . .
+RUN dotnet publish "DyanamicsAPI.csproj" -c Release -o /app/publish
+
+# Final image that runs the app
+FROM base AS final
+WORKDIR /app
+
+# Copy published output from build stage
+COPY --from=build /app/publish .
+
+# Expose ports matching your launchSettings
 EXPOSE 8080
 EXPOSE 8081
 
-
-# This stage is used to build the service project
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
-WORKDIR /src
-COPY ["DyanamicsAPI.csproj", "."]
-RUN dotnet restore "./DyanamicsAPI.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "./DyanamicsAPI.csproj" -c $BUILD_CONFIGURATION -o /app/build
-
-# This stage is used to publish the service project to be copied to the final stage
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./DyanamicsAPI.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
-
-# This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
+# Run the app DLL
 ENTRYPOINT ["dotnet", "DyanamicsAPI.dll"]

@@ -33,11 +33,23 @@
       "launchBrowser": true,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
       "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_HTTPS_PORTS": "8081",
-        "ASPNETCORE_HTTP_PORTS": "8080"
+        "ASPNETCORE_HTTP_PORTS": "8080",
+        "ASPNETCORE_Kestrel__Certificates__Default__Path": "/https/devcert.pfx",
+        "ASPNETCORE_Kestrel__Certificates__Default__Password": "P@ssw0rd"
       },
-      "publishAllPorts": true,
-      "useSSL": true
+      "publishAllPorts": false,
+      "exposePorts": [ 8080, 8081 ],
+      "dockerRun": {
+        "ports": [
+          "8080:8080",
+          "8081:8081"
+        ]
+      },
+      "useSSL": true,
+      "applicationUrl": "https://localhost:8081;http://localhost:8080"
+
     }
   },
   "$schema": "http://json.schemastore.org/launchsettings.json",

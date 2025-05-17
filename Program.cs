@@ -50,6 +50,18 @@ builder.Services.AddAuthorization();
 builder.Host.UseSerilog(logger);
 
 
+// Configure Kestrel for HTTP/2 and HTTPS => docker 
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(8080);
+    options.ListenAnyIP(8081, listenOptions =>
+    {
+        listenOptions.UseHttps("/https/devcert.pfx", "P@ssw0rd");
+    });
+});
+
+
 // Swagger Auth
 builder.Services.AddSwaggerGen(c =>
 {
