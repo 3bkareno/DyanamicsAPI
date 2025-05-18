@@ -34,3 +34,4 @@ EXPOSE 8081
 
 # Run the app DLL
 ENTRYPOINT ["dotnet", "DyanamicsAPI.dll"]
+
