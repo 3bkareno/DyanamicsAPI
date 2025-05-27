@@ -4,17 +4,17 @@ using DyanamicsAPI.Middleware;
 using DyanamicsAPI.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
-using Serilog;
 
 
 var logger = new LoggerConfiguration()
@@ -29,11 +29,6 @@ builder.Services.AddControllers();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
-
-// depercated call 
-
-//builder.Services.AddControllers()
-//    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<Program>());
 
 // DB Context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -52,14 +47,21 @@ builder.Host.UseSerilog(logger);
 
 // Configure Kestrel for HTTP/2 and HTTPS => docker 
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(8080);
-    options.ListenAnyIP(8081, listenOptions =>
-    {
-        listenOptions.UseHttps("/https/devcert.pfx", "P@ssw0rd");
-    });
-});
+//builder.WebHost.ConfigureKestrel(options =>
+//{
+//    options.ListenAnyIP(8080);
+//    options.ListenAnyIP(8081, listenOptions =>
+//    {
+//        listenOptions.UseHttps("/https/devcert.pfx", "P@ssw0rd");
+//    });
+//});
+
+//// bypass docker proxy
+//builder.Services.Configure<ForwardedHeadersOptions>(options =>
+//{
+//    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+//});
+
 
 
 // Swagger Auth
@@ -69,7 +71,7 @@ builder.Services.AddSwaggerGen(c =>
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Enter 'Bearer' followed by your token",
+        Description = "Enter your token",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -137,10 +139,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("TrustedLocalOrigins", policy =>
     {
-        policy.AllowAnyHeader().AllowAnyMethod().SetIsOriginAllowed(_ => true);
-        // Do NOT use AllowCredentials with wildcard origin
+        policy
+            .WithOrigins("http://localhost:4200", "https://localhost:4200")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); 
     });
 });
 
@@ -170,10 +175,13 @@ using (var scope = app.Services.CreateScope())
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseCors("TrustedLocalOrigins");
+
+app.MapGet("/", () => "CORS with credentials for localhost only");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
+app.UseForwardedHeaders();
 
 app.UseRateLimiter();
 app.MapControllers();

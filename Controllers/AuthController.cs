@@ -28,6 +28,7 @@ namespace DyanamicsAPI.Controllers
         }
 
         [HttpPost("login")]
+        //[ValidateAntiForgeryToken]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto loginDto)
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -42,7 +43,7 @@ namespace DyanamicsAPI.Controllers
                 HttpOnly = true,
                 Expires = refreshToken.Expires,
                 Secure = true,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.None
             });
 
             return Ok(new LoginResponseDto
@@ -76,8 +77,8 @@ namespace DyanamicsAPI.Controllers
                 {
                     HttpOnly = true,
                     Expires = newRefreshToken.Expires,
-                    Secure = !_env.IsDevelopment(),
-                    SameSite = SameSiteMode.Strict,
+                    Secure = true,
+                    SameSite = SameSiteMode.None,
                     Path = "/api/auth"
                 });
 

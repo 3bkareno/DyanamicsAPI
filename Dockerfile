@@ -35,3 +35,31 @@ EXPOSE 8081
 # Run the app DLL
 ENTRYPOINT ["dotnet", "DyanamicsAPI.dll"]
 
+
+# for container production use
+
+
+
+# Use the ASP.NET Core 8.0 runtime as base image
+#FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+#WORKDIR /app
+#
+## Copy HTTPS development certificate
+#COPY devcert.pfx /https/devcert.pfx
+#
+## Set environment variables for Kestrel to use the certificate
+#ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/https/devcert.pfx
+#ENV ASPNETCORE_Kestrel__Certificates__Default__Password=P@ssw0rd
+#ENV ASPNETCORE_ENVIRONMENT=Production
+#
+## Copy published files from current directory
+#COPY . .
+#
+## Expose HTTP and HTTPS ports
+#EXPOSE 8080
+#EXPOSE 8081
+#
+## Start the app
+#ENTRYPOINT ["dotnet", "DyanamicsAPI.dll"]
+#
+
