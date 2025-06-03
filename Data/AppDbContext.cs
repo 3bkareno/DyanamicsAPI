@@ -12,6 +12,8 @@ namespace DyanamicsAPI.Data
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<BlacklistedToken> BlacklistedTokens { get; set; }
         public DbSet<IpLoginAttempt> IpLoginAttempts { get; set; }
+        public DbSet<UserFile> UserFiles { get; set; }
+
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -80,7 +82,19 @@ namespace DyanamicsAPI.Data
                 entity.HasIndex(bt => bt.Expiry);
             });
 
-            
+
+            modelBuilder.Entity<UserFile>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+                entity.Property(f => f.FilePath).IsRequired();
+                entity.Property(f => f.UploadedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.HasOne(f => f.User)
+                      .WithMany(u => u.UserFiles)
+                      .HasForeignKey(f => f.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+
         }
     }
 }

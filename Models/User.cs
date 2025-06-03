@@ -14,5 +14,7 @@
         public DateTime? LockoutEnd { get; set; }
         public DateTime? LastSuccessfulLogin { get; set; }
         public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+        public ICollection<UserFile> UserFiles { get; set; } = new List<UserFile>();
+
     }
 }

@@ -1,5 +1,6 @@
 using DyanamicsAPI.Data;
 using DyanamicsAPI.DTOs;
+using DyanamicsAPI.Helpers;
 using DyanamicsAPI.Middleware;
 using DyanamicsAPI.Services;
 using FluentValidation;
@@ -40,9 +41,20 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IValidator<AddUserRequestDto>, AddUserRequestValidator>();
 builder.Services.AddScoped<IValidator<UpdateUserRequestDto>, UpdateUserRequestValidator>();
 builder.Services.AddScoped<IValidator<ChangePasswordDto>, ChangePasswordValidator>();
+
+    builder.Services.AddSingleton(new FileUploadHelper(
+    maxFileSize: 10*1024 * 1024,
+    permittedExtensions: new[] { ".jpg", ".png", ".pdf", ".zip" },
+    targetFilePath: Path.Combine(builder.Environment.ContentRootPath, "wwwroot/Uploads")
+));
+
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAuthorization();
 builder.Host.UseSerilog(logger);
+
+
+
 
 
 // Configure Kestrel for HTTP/2 and HTTPS => docker 
